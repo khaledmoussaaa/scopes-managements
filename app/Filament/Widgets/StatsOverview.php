@@ -6,45 +6,60 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Task;
 use App\Models\User;
+use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
 use Carbon\Carbon;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Support\Facades\Auth;
 
 class StatsOverview extends BaseWidget
 {
+
     protected function getStats(): array
     {
-        // Fetch daily counts for users, employees, departments, and tasks
         $userCounts = $this->getDailyCounts(User::class);
         $employeeCounts = $this->getDailyCounts(Employee::class);
         $departmentCounts = $this->getDailyCounts(Department::class);
         $taskCounts = $this->getDailyCounts(Task::class);
 
-        return [
-            Stat::make('Total Users', User::count())
+        $user = Auth::user();
+
+        // Default stats visible for all users
+        $stats = [];
+
+        // If user has permission to view department and task stats, add those
+        if ($user->can('view_user')) {
+            $stats[] = Stat::make('Total Users', User::count())
                 ->description('The total count of registered users')
                 ->descriptionIcon('heroicon-o-users')
                 ->chart($userCounts)
-                ->color('success'),
-
-            Stat::make('Total Employees', Employee::count())
+                ->color('success');
+        }
+        // If user has permission to view department and task stats, add those
+        if ($user->can('view_employee')) {
+            $stats[] =    Stat::make('Total Employees', Employee::count())
                 ->description('The total count of employees')
                 ->descriptionIcon('heroicon-o-user-group')
                 ->chart($employeeCounts)
-                ->color('primary'),
-
-            Stat::make('Total Departments', Department::count())
+                ->color('primary');
+        }
+        // If user has permission to view department and task stats, add those
+        if ($user->can('view_department')) {
+            $stats[] = Stat::make('Total Departments', Department::count())
                 ->description('The total count of departments')
                 ->descriptionIcon('heroicon-o-building-library')
                 ->chart($departmentCounts)
-                ->color('info'),
+                ->color('info');
+        }
 
-            Stat::make('Total Tasks', Task::count())
+        if ($user->can('view_task')) {
+            $stats[] = Stat::make('Total Tasks', Task::count())
                 ->description('The total count of tasks')
                 ->descriptionIcon('heroicon-o-queue-list')
                 ->chart($taskCounts)
-                ->color('gray'),
-        ];
+                ->color('gray');
+        }
+        return $stats;
     }
 
     /**
@@ -60,7 +75,6 @@ class StatsOverview extends BaseWidget
         // Loop through the last 7 days
         for ($i = 6; $i >= 0; $i--) {
             $date = Carbon::now()->subDays($i)->toDateString();
-
             // Count records created on the given day
             $counts[] = $modelClass::whereDate('created_at', $date)->count();
         }
